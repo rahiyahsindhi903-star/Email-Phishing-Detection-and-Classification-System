@@ -22,7 +22,7 @@ def make_qr_upload(url_text: str) -> UploadFile:
     qr.make(fit=True)
     img = qr.make_image(fill_color="black", back_color="white")
     buf = io.BytesIO()
-    img.save(buf, format="PNG")
+    img.save(buf)
     buf.seek(0)
     return UploadFile(filename="test_qr.png", file=buf)
 
@@ -143,3 +143,4 @@ class TestScannerConsistency(unittest.IsolatedAsyncioTestCase):
 
 if __name__ == "__main__":
     unittest.main()
+

@@ -10,7 +10,7 @@ def make_qr_upload_file(data: str) -> UploadFile:
     qr.make(fit=True)
     img = qr.make_image(fill_color="black", back_color="white")
     buf = io.BytesIO()
-    img.save(buf, format="PNG")
+    img.save(buf)
     buf.seek(0)
     return UploadFile(filename="qr.png", file=buf)
 
