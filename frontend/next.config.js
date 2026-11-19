@@ -1,23 +1,19 @@
 /** @type {import('next').NextConfig} */
 const nextConfig = {
   reactStrictMode: true,
+  // Keep all pages compiled in memory so route switching is instant
+  onDemandEntries: {
+    maxInactiveAge: 60 * 60 * 1000, // 1 hour (prevents dumping compiled pages from cache)
+    pagesBufferLength: 10,           // Keep all 4+ pages buffered in memory
+  },
   webpack: (config, { dev, isServer }) => {
     if (dev && !isServer) {
-      // Improve HMR performance
       config.watchOptions = {
-        poll: 1000,
-        aggregateTimeout: 300,
+        aggregateTimeout: 200,
       };
     }
     return config;
   },
-  // Suppress webpack warnings about missing hot-update files
-  onDemandEntries: {
-    maxInactiveAge: 25 * 1000,
-    pagesBufferLength: 2,
-  },
-}
+};
 
-module.exports = nextConfig
-
-
+module.exports = nextConfig;

@@ -93,9 +93,14 @@ async def scan_qr(file: UploadFile = File(...)):
             "message": "No valid QR code found in image."
         }
 
-    # If QR contains URL → scan with URL scanner
-    if decoded.startswith(("http://", "https://")):
-        url_result = await scan_url_service(decoded)
+    # If QR contains URL → scan with centralized canonical URL scanner
+    from app.services.url_scanner_service import normalize_url
+    import validators
+
+    clean_decoded = decoded.strip() if decoded else ""
+    norm_url = normalize_url(clean_decoded)
+    if clean_decoded.lower().startswith(("http://", "https://")) or (norm_url and validators.url(norm_url)):
+        url_result = await scan_url_service(norm_url)
         return {
             "decoded": decoded,
             "type": "url",

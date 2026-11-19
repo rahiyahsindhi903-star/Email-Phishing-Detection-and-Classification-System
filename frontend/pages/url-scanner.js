@@ -1,5 +1,6 @@
 import React, { useState } from "react";
 import Link from "next/link";
+import Navbar from "../components/Navbar";
 import styles from "../styles/Home.module.css";
 import scannerStyles from "../styles/Scanner.module.css";
 
@@ -138,21 +139,8 @@ export default function URLScanner() {
 
   return (
     <div className={styles.container}>
-      {/* Header */}
-      <header className={styles.header}>
-        <div className={styles.headerContent}>
-          <div className={styles.logo}>
-            <span className={styles.logoIcon}>🛡️</span>
-            <span className={styles.logoText}>Phishing Detector</span>
-          </div>
-          <nav className={styles.nav}>
-            <Link href="/" className={styles.navLink}>Home</Link>
-            <Link href="/url-scanner" className={styles.navLink}>URL Scanner</Link>
-            <Link href="/qr-scanner" className={styles.navLink}>QR Scanner</Link>
-            <Link href="/email-scanner" className={styles.navLink}>Email Scanner</Link>
-          </nav>
-        </div>
-      </header>
+      {/* Navbar with interactive buttons */}
+      <Navbar />
 
       {/* Main Content */}
       <main className={styles.main}>

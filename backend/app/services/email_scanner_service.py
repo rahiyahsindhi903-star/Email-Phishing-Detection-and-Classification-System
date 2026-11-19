@@ -16,8 +16,9 @@ import re
 from typing import List, Dict, Any
 
 import tldextract
+import validators
 
-from app.services.url_scanner_service import scan_url_service
+from app.services.url_scanner_service import scan_url_service, normalize_url
 from app.services.redirect_chain_service import get_redirect_chain
 from app.services.domain_ssl_service import get_domain_age
 from app.services.ai_email_analyzer import analyze_email_text
@@ -34,8 +35,22 @@ FREE_PROVIDERS = {
 
 
 def _extract_urls_from_text(text: str) -> List[str]:
-    url_pattern = r"https?://\S+"
-    return re.findall(url_pattern, text or "")
+    """
+    Extracts URLs from plain text or HTML bodies.
+    Strips trailing sentence punctuation (. , ; ! ? ) ] > quotes) and normalizes each URL.
+    """
+    if not text:
+        return []
+    pattern = r'(?:https?://|www\.)[^\s<>"\'\u201c\u201d\u2018\u2019]+'
+    raw_matches = re.findall(pattern, text, flags=re.IGNORECASE)
+    extracted: List[str] = []
+    seen: set = set()
+    for raw in raw_matches:
+        norm = normalize_url(raw)
+        if norm and norm not in seen and validators.url(norm):
+            seen.add(norm)
+            extracted.append(norm)
+    return extracted
 
 
 async def _analyze_urls(urls: List[str]) -> List[Dict[str, Any]]:
@@ -47,8 +62,9 @@ async def _analyze_urls(urls: List[str]) -> List[Dict[str, Any]]:
 
     for raw_url in urls[:10]:   # hard cap for performance
         try:
-            scan_result = await scan_url_service(raw_url)
-            redirect_chain = await get_redirect_chain(raw_url)
+            norm_url = normalize_url(raw_url)
+            scan_result = await scan_url_service(norm_url)
+            redirect_chain = await get_redirect_chain(norm_url)
 
             report = {
                 "url":           scan_result["url"],
@@ -151,16 +167,27 @@ async def scan_email_service(
     """
     links = links or []
 
-    # 1. Collect all URLs from explicit links + subject/body
-    extracted_from_body    = _extract_urls_from_text(body)
-    extracted_from_subject = _extract_urls_from_text(subject)
-
+    # 1. Collect and canonically normalize all URLs
     all_urls: List[str] = []
     seen: set = set()
-    for u in links + extracted_from_subject + extracted_from_body:
-        if u not in seen:
-            seen.add(u)
-            all_urls.append(u)
+
+    for raw in links:
+        norm = normalize_url(raw)
+        if norm and norm not in seen and validators.url(norm):
+            seen.add(norm)
+            all_urls.append(norm)
+
+    extracted_from_subject = _extract_urls_from_text(subject)
+    for norm in extracted_from_subject:
+        if norm not in seen and validators.url(norm):
+            seen.add(norm)
+            all_urls.append(norm)
+
+    extracted_from_body = _extract_urls_from_text(body)
+    for norm in extracted_from_body:
+        if norm not in seen and validators.url(norm):
+            seen.add(norm)
+            all_urls.append(norm)
 
     # 2. AI-style text analysis on subject + body
     text_ai = analyze_email_text(subject=subject, body=body, sender=sender)
@@ -179,9 +206,17 @@ async def scan_email_service(
 
     # 5a. Highest URL risk score among all links in the email
     max_url_score = 0
+    has_phishing_url = False
+    has_suspicious_url = False
     for rep in per_url_reports:
-        s = rep.get("score") or 0
-        max_url_score = max(max_url_score, int(s))
+        s = rep.get("score")
+        if isinstance(s, int):
+            max_url_score = max(max_url_score, s)
+        lbl = rep.get("label")
+        if lbl == "phishing":
+            has_phishing_url = True
+        elif lbl == "suspicious":
+            has_suspicious_url = True
 
     # 5b. Sender domain age component
     sender_age = sender_report.get("domain_age") or {}
@@ -205,10 +240,8 @@ async def scan_email_service(
         rule_boost += 15
         extra_indicators.append("Urgency language detected (e.g., urgent / verify / within N hours).")
 
-    if per_url_reports:
-        if any(rep.get("label") in ("phishing", "suspicious") for rep in per_url_reports):
-            rule_boost += 10
-            extra_indicators.append("One or more links in the email are flagged as phishing or suspicious.")
+    if has_phishing_url or has_suspicious_url:
+        extra_indicators.append("One or more links in the email are flagged as phishing or suspicious.")
 
     # Sender domain vs first-link domain mismatch
     sender_domain = sender.split("@")[-1].lower() if sender and "@" in sender else None
@@ -228,12 +261,19 @@ async def scan_email_service(
             f"Sender domain ({sender_domain}) does not match the primary link domain ({first_link_domain})."
         )
 
-    # Weighted aggregate: URL is primary signal, text and sender are secondary
-    base_score = max(
-        int(0.6 * max_url_score + 0.4 * text_component),
-        sender_component,
-    )
-    final_score = max(0, min(base_score + rule_boost, 100))
+    # ─────────────────────────────────────────────────────────────────
+    # OVERALL EMAIL RISK SCORE:
+    # An email containing a URL must NEVER dilute that URL's threat level.
+    # The email risk is at least the highest URL score, plus any email-level
+    # threats (suspicious sender, text urgency, brand mismatch).
+    # ─────────────────────────────────────────────────────────────────
+    if per_url_reports:
+        email_content_risk = max(text_component, sender_component)
+        final_score = max(max_url_score, email_content_risk) + rule_boost
+    else:
+        final_score = max(text_component, sender_component) + rule_boost
+
+    final_score = max(0, min(final_score, 100))
 
     # ─────────────────────────────────────────────────────────────────────
     # 6. Labels and summary

@@ -1,5 +1,6 @@
 import React, { useState } from "react";
 import Link from "next/link";
+import Navbar from "../components/Navbar";
 import styles from "../styles/Home.module.css";
 import scannerStyles from "../styles/Scanner.module.css";
 
@@ -123,21 +124,8 @@ export default function EmailScanner() {
 
   return (
     <div className={styles.container}>
-      {/* Header */}
-      <header className={styles.header}>
-        <div className={styles.headerContent}>
-          <div className={styles.logo}>
-            <span className={styles.logoIcon}>🛡️</span>
-            <span className={styles.logoText}>Phishing Detector</span>
-          </div>
-          <nav className={styles.nav}>
-            <Link href="/" className={styles.navLink}>Home</Link>
-            <Link href="/url-scanner" className={styles.navLink}>URL Scanner</Link>
-            <Link href="/qr-scanner" className={styles.navLink}>QR Scanner</Link>
-            <Link href="/email-scanner" className={styles.navLink}>Email Scanner</Link>
-          </nav>
-        </div>
-      </header>
+      {/* Navbar with interactive buttons */}
+      <Navbar />
 
       {/* Main Content */}
       <main className={styles.main}>
@@ -247,7 +235,7 @@ export default function EmailScanner() {
                 </h2>
                 <div className={scannerStyles.scoreStack}>
                   <div className={scannerStyles.score}>
-                    Risk Score:{" "}
+                    Overall Email Risk Score:{" "}
                     {result.final_email_risk_score ?? 0}/100
                   </div>
                 </div>
@@ -342,10 +330,11 @@ export default function EmailScanner() {
                                 <span
                                   style={{
                                     marginLeft: "1rem",
-                                    color: "#757575",
+                                    color: "#555",
+                                    fontWeight: "600",
                                   }}
                                 >
-                                  Risk Score: {urlItem.score}/100
+                                  URL Risk Score: {urlItem.score}/100
                                 </span>
                               )}
                             </div>

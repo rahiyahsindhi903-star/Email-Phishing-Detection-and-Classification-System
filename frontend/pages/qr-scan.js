@@ -1,61 +1,43 @@
 import React, { useEffect, useRef, useState } from "react";
-
-import { BrowserMultiFormatReader } from "@zxing/browser";
-
-
+import Navbar from "../components/Navbar";
 
 export default function QRScan() {
-
   const videoRef = useRef(null);
-
+  const codeReaderRef = useRef(null);
   const [decodedText, setDecodedText] = useState("");
-
   const [scanning, setScanning] = useState(false);
 
-
-
   useEffect(() => {
-
-    const codeReader = new BrowserMultiFormatReader();
-
+    let active = true;
     setScanning(true);
 
+    import("@zxing/browser").then(({ BrowserMultiFormatReader }) => {
+      if (!active || !videoRef.current) return;
+      const codeReader = new BrowserMultiFormatReader();
+      codeReaderRef.current = codeReader;
 
-
-    codeReader.decodeFromVideoDevice(
-
-      null,
-
-      videoRef.current,
-
-      (result, err) => {
-
-        if (result) {
-
-          setDecodedText(result.getText());
-
-          setScanning(false);
-
-          codeReader.reset();
-
+      codeReader.decodeFromVideoDevice(
+        null,
+        videoRef.current,
+        (result, err) => {
+          if (result && active) {
+            setDecodedText(result.getText());
+            setScanning(false);
+            codeReader.reset();
+            codeReaderRef.current = null;
+          }
         }
-
-      }
-
-    );
-
-
+      );
+    }).catch(console.error);
 
     return () => {
-
-      try {
-
-        codeReader.reset();
-
-      } catch {}
-
+      active = false;
+      if (codeReaderRef.current) {
+        try {
+          codeReaderRef.current.reset();
+        } catch {}
+      }
     };
-
   }, []);
 
 
@@ -83,8 +65,9 @@ export default function QRScan() {
 
 
   return (
-
-    <div style={{ padding: "20px" }}>
+    <div>
+      <Navbar />
+      <div style={{ padding: "20px" }}>
 
       <h1>Live QR Scanner</h1>
 
@@ -118,8 +101,7 @@ export default function QRScan() {
 
       )}
 
+      </div>
     </div>
-
   );
-
 }

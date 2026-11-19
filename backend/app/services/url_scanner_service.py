@@ -30,7 +30,7 @@ Labels:
 import re
 import datetime as dt
 from difflib import SequenceMatcher
-from urllib.parse import urlparse
+from urllib.parse import urlparse, urlsplit, urlunsplit, parse_qsl, urlencode, unquote
 
 import tldextract
 import validators
@@ -85,6 +85,61 @@ def _label_from_score(score: int) -> str:
     return "safe"
 
 
+def normalize_url(url: str) -> str:
+    """
+    Centralized canonical URL normalizer shared across URL, QR, and Email scanners.
+    
+    Normalization steps:
+    1. Strips leading/trailing whitespace and surrounding quotes.
+    2. Removes trailing sentence-boundary punctuation (. , ; ! ? ) ] >) commonly appended in emails.
+    3. Normalizes scheme to lowercase, defaulting missing schemes to 'http://'.
+    4. Normalizes hostname to lowercase and strips default ports (:80, :443).
+    5. Decodes safe percent-encoded characters and normalizes path casing and trailing slashes.
+    6. Sorts and standardizes query parameters so order variations match.
+    """
+    if not url:
+        return ""
+    url = url.strip()
+    
+    # Strip trailing punctuation commonly attached at end of sentences/quotes
+    url = re.sub(r'[\s\.,;:!?\)\(\]\[><"\'\u201c\u201d\u2018\u2019]+$', '', url)
+    if not url:
+        return ""
+
+    # Ensure valid scheme format
+    if not re.match(r'^[a-zA-Z][a-zA-Z0-9+.-]*://', url):
+        url = 'http://' + url
+        
+    try:
+        parts = urlsplit(url)
+        scheme = parts.scheme.lower()
+        netloc = parts.netloc.lower()
+        
+        # Remove default ports
+        if scheme == 'http' and netloc.endswith(':80'):
+            netloc = netloc[:-3]
+        elif scheme == 'https' and netloc.endswith(':443'):
+            netloc = netloc[:-4]
+            
+        # Unquote and normalize path
+        path = unquote(parts.path or '').lower()
+        if path.endswith('/') and len(path) > 1:
+            path = path.rstrip('/')
+        elif path == '/':
+            path = ''
+            
+        # Normalize and sort query params
+        query = parts.query
+        if query:
+            q_pairs = parse_qsl(query, keep_blank_values=True)
+            q_pairs.sort(key=lambda x: x[0])
+            query = urlencode(q_pairs)
+            
+        return urlunsplit((scheme, netloc, path, query, parts.fragment))
+    except Exception:
+        return url
+
+
 def _is_lookalike_domain(domain: str) -> str | None:
     """
     Returns the brand name if `domain` looks like a lookalike, else None.
@@ -122,12 +177,11 @@ async def scan_url_service(url: str) -> dict:
     reasons: list[str] = []
     score = 0
 
-    # ── Normalise ──────────────────────────────────────────────────────────
-    if not url.startswith(("http://", "https://")):
-        url = "http://" + url
+    # ── Canonical Normalization ────────────────────────────────────────────
+    url = normalize_url(url)
 
     # ── Validate ───────────────────────────────────────────────────────────
-    if not validators.url(url):
+    if not url or not validators.url(url):
         return {
             "url": url,
             "label": "invalid",
@@ -154,7 +208,7 @@ async def scan_url_service(url: str) -> dict:
         reasons.append("Flagged by Google Safe Browsing")
 
     # 1b. OpenPhish blocklist
-    if openphish.is_phishing(url):
+    if openphish.is_phishing(url) or openphish.is_phishing(url + "/") or openphish.is_phishing(url.rstrip("/")):
         score += 60
         reasons.append("Found in OpenPhish phishing feed")
 

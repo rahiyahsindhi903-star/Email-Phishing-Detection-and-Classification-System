@@ -1,4 +1,4 @@
-i fastapi
+fastapi
 uvicorn[standard]
 httpx
 python-dotenv
@@ -14,3 +14,4 @@ python-dateutil
 whois
 playwright
 beautifulsoup4
+qrcode

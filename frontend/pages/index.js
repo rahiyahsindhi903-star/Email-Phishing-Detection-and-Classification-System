@@ -1,24 +1,13 @@
+import React from "react";
 import Link from "next/link";
+import Navbar from "../components/Navbar";
 import styles from "../styles/Home.module.css";
 
 export default function Home() {
   return (
     <div className={styles.container}>
-      {/* Header */}
-      <header className={styles.header}>
-        <div className={styles.headerContent}>
-          <div className={styles.logo}>
-            <span className={styles.logoIcon}>🛡️</span>
-            <span className={styles.logoText}>Phishing Detector</span>
-          </div>
-          <nav className={styles.nav}>
-            <Link href="/" className={styles.navLink}>Home</Link>
-            <Link href="/url-scanner" className={styles.navLink}>URL Scanner</Link>
-            <Link href="/qr-scanner" className={styles.navLink}>QR Scanner</Link>
-            <Link href="/email-scanner" className={styles.navLink}>Email Scanner</Link>
-          </nav>
-        </div>
-      </header>
+      {/* Dynamic Navbar with interactive buttons */}
+      <Navbar />
 
       {/* Main Content */}
       <main className={styles.main}>
@@ -40,7 +29,7 @@ export default function Home() {
                 Paste a suspicious link and receive real-time analysis with detailed feature insights.
               </p>
               <Link href="/url-scanner" className={styles.launchLink}>
-                Launch →
+                Launch Scanner →
               </Link>
             </div>
 
@@ -49,10 +38,10 @@ export default function Home() {
               <div className={styles.featureIcon}>📱</div>
               <h2 className={styles.featureTitle}>QR Scanner</h2>
               <p className={styles.featureDescription}>
-                Upload QR images to decode embedded URLs and instantly check for phishing signals.
+                Upload QR images or scan live to decode embedded URLs and check for quishing signals.
               </p>
               <Link href="/qr-scanner" className={styles.launchLink}>
-                Launch →
+                Launch Scanner →
               </Link>
             </div>
 
@@ -61,10 +50,10 @@ export default function Home() {
               <div className={styles.featureIcon}>✉️</div>
               <h2 className={styles.featureTitle}>Email Scanner</h2>
               <p className={styles.featureDescription}>
-                Assess sender reputation, urgency cues, and embedded links from any email.
+                Assess sender reputation, urgency cues, and embedded links from suspicious emails.
               </p>
               <Link href="/email-scanner" className={styles.launchLink}>
-                Launch →
+                Launch Scanner →
               </Link>
             </div>
           </div>

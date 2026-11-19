@@ -1,6 +1,6 @@
 import React, { useState, useRef, useEffect, useCallback } from "react";
 import Link from "next/link";
-import { BrowserMultiFormatReader } from "@zxing/browser";
+import Navbar from "../components/Navbar";
 import styles from "../styles/Home.module.css";
 import scannerStyles from "../styles/Scanner.module.css";
 
@@ -129,33 +129,47 @@ export default function QRScanner() {
     }
   };
 
-  // Camera scanning logic
+  // Camera scanning logic - dynamically load @zxing/browser only when camera is active
   useEffect(() => {
+    let active = true;
+
     if (activeTab === "camera" && videoRef.current) {
       setScanning(true);
-      const codeReader = new BrowserMultiFormatReader();
-      codeReaderRef.current = codeReader;
+      import("@zxing/browser")
+        .then(({ BrowserMultiFormatReader }) => {
+          if (!active || !videoRef.current) return;
+          const codeReader = new BrowserMultiFormatReader();
+          codeReaderRef.current = codeReader;
 
-      codeReader.decodeFromVideoDevice(
-        null,
-        videoRef.current,
-        (result, err) => {
-          if (result) {
-            setDecodedText(result.getText());
-            setScanning(false);
-            codeReader.reset();
-            codeReaderRef.current = null;
-            
-            // Auto-scan if it's a URL
-            if (result.getText().startsWith("http://") || result.getText().startsWith("https://")) {
-              handleQRScan(result.getText());
+          codeReader.decodeFromVideoDevice(
+            null,
+            videoRef.current,
+            (result, err) => {
+              if (result && active) {
+                setDecodedText(result.getText());
+                setScanning(false);
+                codeReader.reset();
+                codeReaderRef.current = null;
+
+                // Auto-scan if it's a URL
+                if (
+                  result.getText().startsWith("http://") ||
+                  result.getText().startsWith("https://")
+                ) {
+                  handleQRScan(result.getText());
+                }
+              }
             }
-          }
-        }
-      );
+          );
+        })
+        .catch((err) => {
+          console.error("Camera scanner loading error:", err);
+          setError("Failed to initialize camera scanner.");
+        });
     }
 
     return () => {
+      active = false;
       if (codeReaderRef.current) {
         try {
           codeReaderRef.current.reset();
@@ -217,21 +231,8 @@ export default function QRScanner() {
 
   return (
     <div className={styles.container}>
-      {/* Header */}
-      <header className={styles.header}>
-        <div className={styles.headerContent}>
-          <div className={styles.logo}>
-            <span className={styles.logoIcon}>🛡️</span>
-            <span className={styles.logoText}>Phishing Detector</span>
-          </div>
-          <nav className={styles.nav}>
-            <Link href="/" className={styles.navLink}>Home</Link>
-            <Link href="/url-scanner" className={styles.navLink}>URL Scanner</Link>
-            <Link href="/qr-scanner" className={styles.navLink}>QR Scanner</Link>
-            <Link href="/email-scanner" className={styles.navLink}>Email Scanner</Link>
-          </nav>
-        </div>
-      </header>
+      {/* Navbar with interactive buttons */}
+      <Navbar />
 
       {/* Main Content */}
       <main className={styles.main}>
