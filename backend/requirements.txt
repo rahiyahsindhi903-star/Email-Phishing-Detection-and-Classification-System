@@ -1,0 +1,16 @@
+i fastapi
+uvicorn[standard]
+httpx
+python-dotenv
+pydantic-settings
+python-multipart
+tldextract
+validators
+opencv-python
+pyzbar
+Pillow
+numpy
+python-dateutil
+whois
+playwright
+beautifulsoup4
